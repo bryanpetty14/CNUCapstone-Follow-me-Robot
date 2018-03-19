@@ -1,15 +1,10 @@
 
 #include <Wire.h>
-//#include <Adafruit_MotorShield.h>
+#include <NewPing.h>
 #include <AFMotor.h>
 #include <Servo.h>
 //CREATING MOTOR OBJECTS//
-//Adafruit_MotorShield AFMS = Adafruit_MotorShield();
-/*Adafruit_DCMotor *motorone = AFMS.getMotor(1);
-  Adafruit_DCMotor *motortwo = AFMS.getMotor(2);
-  Adafruit_DCMotor *motorthree = AFMS.getMotor(3);
-  Adafruit_DCMotor *motorfour = AFMS.getMotor(4);
-*/
+
 AF_DCMotor motorone(1, MOTOR12_64KHZ);
 AF_DCMotor motortwo(2, MOTOR12_64KHZ);
 AF_DCMotor motorthree(3, MOTOR12_64KHZ);
@@ -19,17 +14,35 @@ Servo servo;
 //GLOBAL VARIABLES//
 int minValue = 200;
 long distance = 0;
+double aveDeg[3] = { -1, -1, -1};
 const int trigPin = A0;
 const int echoPin = A1;
-double aveDeg[3] = { -1, -1, -1};
 
 void setup() {
-  //AFMS.begin();
+  
   motorone.setSpeed(0);
   motortwo.setSpeed(0);
   motorthree.setSpeed(0);
   motorfour.setSpeed(0);
+  
   Serial.begin(9600);
+
+  servo.attach(10);
+  servo.write(90);
+}
+
+void sonar() {
+  int duration = 0;
+  pinMode(trigPin, OUTPUT);
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  pinMode(echoPin, INPUT);
+  duration = pulseIn(echoPin, HIGH);
+  distance = microsecondsToInches(duration);
+  duration = 0;
 }
 
 void stop() {
@@ -47,26 +60,20 @@ long microsecondsToCentimeters(long microseconds) {
   return microseconds / 29 / 2;
 }
 
-void sonar() {
-  int duration = 0;
-  pinMode(trigPin, OUTPUT);
-  digitalWrite(trigPin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigPin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigPin, LOW);
-  pinMode(echoPin, INPUT);
-  duration = pulseIn(echoPin, HIGH);
-  distance = microsecondsToInches(duration);
-  duration = 0;
-}
-
 void changeSpeedSpecial(int degree) {
   if (degree == 0.00) {
     motorone.setSpeed(85);
     motortwo.setSpeed(85);
     motorthree.setSpeed(85);
     motorfour.setSpeed(85);
+    //turn servo east and poll
+    servo.write(180);
+    delay(3);
+    sonar();
+    if(distance < 15){
+      stop();
+      return;
+    }
     motorone.run(RELEASE);
     motortwo.run(RELEASE);
     motorthree.run(FORWARD);
@@ -80,6 +87,14 @@ void changeSpeedSpecial(int degree) {
     motortwo.setSpeed(85);
     motorthree.setSpeed(85);
     motorfour.setSpeed(85);
+    //turn servo west and poll
+    servo.write(0);
+    delay(3);
+    sonar();
+    if(distance < 15){
+      stop();
+      return;
+    }
     motorthree.run(RELEASE);
     motorfour.run(RELEASE);
     motorone.run(FORWARD);
@@ -94,6 +109,14 @@ void changeSpeedSpecial(int degree) {
     motortwo.setSpeed(200);
     motorthree.setSpeed(200+10);
     motorfour.setSpeed(200+10);
+    //turn servo forward and poll
+    servo.write(90);
+    delay(1);
+    sonar();
+    if(distance < 15){
+      stop();
+      return;
+    }
     motorone.run(FORWARD);
     motortwo.run(FORWARD);
     motorthree.run(FORWARD);
@@ -110,13 +133,28 @@ void changeSpeed(int degree) {
     stop();
     return;
   }
-  if (degree > 90) { //if the person is to the left
-
+  else if (degree > 90) { //if the person is to the left
+    //turn servo north west and poll
+    servo.write(90);
+    delay(1);
+    sonar();
+    if(distance < 15){
+      stop();
+      return;
+    }
     speedLeft -= floor(2 * (degree - 90)); //adjust motors on the left
     if (speedLeft < 0) {
       speedLeft = 0;
     }
   } else {//if the person is to the right or in front
+    //turn servo north east and poll
+    servo.write(90);
+    delay(1);
+    sonar();
+    if(distance < 15){
+      stop();
+      return;
+    }
     speedRight -= floor(2 * (90 - degree)); //adjust motors on the left
     if (speedRight < 0) {
       speedRight = 0;
@@ -154,7 +192,7 @@ void onwards() {
   }
   degree = 90.0;//90 because ¯\_(ツ)_/¯
 
-  if ((sumWest <= 5 && sumEast <= 5 && sumNorth <= 5 && sumSouth <= 5 ) || (sumWest != 0 && sumEast != 0 && sumNorth != 0 && sumSouth != 0) ) { //device off
+  if ((sumWest <= 5 && sumEast <= 5 && sumNorth <= 5 && sumSouth <= 5 ) || (sumWest != 0 && sumEast != 0 && sumNorth != 0) ) { //device off
     //reset degree values
     Serial.println("stop");
     degree = -1;
@@ -198,14 +236,12 @@ void onwards() {
 
   //detected something more south, check east vs west
   else if (sumEast > sumWest) {//east has greater value than west
-    //if(sonar check)
     //clear array because of direction change
     /*aveDeg[2] = -1;
       aveDeg[1] = -1;
       aveDeg[0] = -1;*/
     degree = 0;
   } else { //west has the greater value than east
-    //if(sonar Check)
     //clear array because of direction change
     if (sumWest > 20) {
       /*aveDeg[2] = -1;
@@ -301,11 +337,15 @@ void onwards() {
 }
 void loop() {
   sonar();
-  Serial.println(distance);
-  if (distance > 15) {
+  /*if (millis() >= pingTimer) {   // pingSpeed milliseconds since last ping, do another ping.
+    pingTimer += pingSpeed;      // Set the next ping time.
+    sonar.ping_timer(echoCheck); // Send out the ping, calls "echoCheck" function every 24uS where you can check the ping status.
+  
+  }*/
+  if(distance >15){
+    Serial.println(distance);
     onwards();
-  } else {
-    //turn the sonar sensor and check around the robot
-    stop();//object too close to the robot
+  }else{
+    stop();
   }
 }
