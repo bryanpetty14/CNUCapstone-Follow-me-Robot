@@ -3,7 +3,6 @@
 #include <NewPing.h>
 #include <AFMotor.h>
 #include <Servo.h>
-//CREATING MOTOR OBJECTS//
 
 AF_DCMotor motorone(1, MOTOR12_64KHZ);
 AF_DCMotor motortwo(2, MOTOR12_64KHZ);
@@ -19,12 +18,12 @@ const int trigPin = A0;
 const int echoPin = A1;
 
 void setup() {
-  
+
   motorone.setSpeed(0);
   motortwo.setSpeed(0);
   motorthree.setSpeed(0);
   motorfour.setSpeed(0);
-  
+
   Serial.begin(9600);
 
   servo.attach(10);
@@ -62,6 +61,7 @@ long microsecondsToCentimeters(long microseconds) {
 
 void changeSpeedSpecial(int degree) {
   if (degree == 0.00) {
+
     motorone.setSpeed(85);
     motortwo.setSpeed(85);
     motorthree.setSpeed(85);
@@ -70,10 +70,13 @@ void changeSpeedSpecial(int degree) {
     servo.write(180);
     delay(3);
     sonar();
-    if(distance < 15){
+
+    if (distance < 15) {
       stop();
+      delay(50);
       return;
     }
+
     motorone.run(RELEASE);
     motortwo.run(RELEASE);
     motorthree.run(FORWARD);
@@ -81,8 +84,9 @@ void changeSpeedSpecial(int degree) {
     motorone.run(BACKWARD);
     motortwo.run(BACKWARD);
     Serial.println("Left");
-  }
-  else if (degree == 180.00) {
+
+  } else if (degree == 180.00) {
+    
     motorone.setSpeed(85);
     motortwo.setSpeed(85);
     motorthree.setSpeed(85);
@@ -91,71 +95,82 @@ void changeSpeedSpecial(int degree) {
     servo.write(0);
     delay(3);
     sonar();
-    if(distance < 15){
+    
+    if (distance < 15) {
       stop();
+      delay(50);
       return;
     }
+    
     motorthree.run(RELEASE);
     motorfour.run(RELEASE);
     motorone.run(FORWARD);
     motortwo.run(FORWARD);
     motorthree.run(BACKWARD);
     motorfour.run(BACKWARD);
-
-    Serial.println("Right");
-  }
-  else {
+    
+  } else {
     motorone.setSpeed(200);
     motortwo.setSpeed(200);
-    motorthree.setSpeed(200+10);
-    motorfour.setSpeed(200+10);
+    motorthree.setSpeed(200 + 15);
+    motorfour.setSpeed(200 + 15);
     //turn servo forward and poll
     servo.write(90);
     delay(1);
     sonar();
-    if(distance < 15){
+    
+    if (distance < 15) {
       stop();
+      delay(50);
       return;
     }
+    
     motorone.run(FORWARD);
     motortwo.run(FORWARD);
     motorthree.run(FORWARD);
     motorfour.run(FORWARD);
-    Serial.println("FORWARD");
-    Serial.println("Forward");
+
   }
 }
 
 void changeSpeed(int degree) {
   int speedLeft = 200;
   int speedRight = 200;
+  
   if (degree == -1.00) {
     stop();
+    delay(50);
     return;
-  }
-  else if (degree > 90) { //if the person is to the left
+  } else if (degree > 90) { //if the person is to the left
+    
     //turn servo north west and poll
     servo.write(90);
     delay(1);
     sonar();
-    if(distance < 15){
+    
+    if (distance < 15) {
       stop();
+      delay(50);
       return;
     }
-    speedLeft -= floor(2 * (degree - 90)); //adjust motors on the left
+    
+    speedLeft -= floor(13 * (degree - 90)); //adjust motors on the left
+    
     if (speedLeft < 0) {
       speedLeft = 0;
     }
+    
   } else {//if the person is to the right or in front
     //turn servo north east and poll
     servo.write(90);
     delay(1);
     sonar();
-    if(distance < 15){
+    if (distance < 15) {
       stop();
+      delay(50);
       return;
     }
-    speedRight -= floor(2 * (90 - degree)); //adjust motors on the left
+    speedRight -= floor(13 * (90 - degree)); //adjust motors on the left
     if (speedRight < 0) {
       speedRight = 0;
     }
@@ -171,6 +186,7 @@ void onwards() {
   int sum, sumWest, sumEast, sumNorth, sumSouth = 0;
   int minValue = 100;
   double degree, weightedAve = 0;
+  
   for (int j; j < 180; j++) {
     west[j] = analogRead(4);
     south[j] = analogRead(5);
@@ -192,20 +208,17 @@ void onwards() {
   }
   degree = 90.0;//90 because ¯\_(ツ)_/¯
 
-  if ((sumWest <= 5 && sumEast <= 5 && sumNorth <= 5 && sumSouth <= 5 ) || (sumWest != 0 && sumEast != 0 && sumNorth != 0) ) { //device off
+  if ((sumWest <= 5 && sumEast <= 5 && sumNorth <= 5 && sumSouth <= 5 ) || (sumSouth != 0 && sumWest != 0 && sumEast != 0 && sumNorth != 0) ) { //device off
     //reset degree values
-    Serial.println("stop");
     degree = -1;
     //clear array because of no direction
     aveDeg[2] = -1;
     aveDeg[1] = -1;
     aveDeg[0] = -1;
     stop();
-    delay(250);
+    delay(50);
     return;
-  }
-
-  else if (sumNorth > sumSouth && sumNorth > 20) {//detected something more north than south
+  } else if (sumNorth > sumSouth && sumNorth > 20) {//detected something more north than south
     if (sumNorth > 100 && sumEast <= 1 && sumWest <= 1) { //north much greater
       //just go north
       degree = 90;
@@ -213,8 +226,7 @@ void onwards() {
       aveDeg[2] = -1;
       aveDeg[1] = -1;
       aveDeg[0] = -1;
-    }
-    else if (sumEast > sumWest) {//check if east is greater than west
+    } else if (sumEast > sumWest) {//check if east is greater than west
 
       if (aveDeg[2] == 180) { //if just came from west
         aveDeg[2] = -1;//make the last value not count
@@ -223,46 +235,31 @@ void onwards() {
       degree = atan2(sumEast, sumNorth);//take the arctan of opposite over adjacent
       degree *= 180 / 3.1415; //convert to degrees
       degree = 90 - degree;//adjust to find the new angle
-    }
-    else { //east is not bigger, use west
+      
+    } else { //east is not bigger, use west
+      
       if (aveDeg[2] == 0) { //if just came from east
         aveDeg[2] = -1;//make the last value not count
       }
+      
       degree = atan2(sumWest, sumNorth);//take arctan of opposite over adjacent on left side(if degree = 0 after,then north has value and east and west are 0)
       degree *= 180 / 3.1415; //convert (if 0, will still be 0)
       degree += 90;//adjust degree to new angle
     }
   }
-
   //detected something more south, check east vs west
   else if (sumEast > sumWest) {//east has greater value than west
-    //clear array because of direction change
-    /*aveDeg[2] = -1;
-      aveDeg[1] = -1;
-      aveDeg[0] = -1;*/
     degree = 0;
   } else { //west has the greater value than east
     //clear array because of direction change
     if (sumWest > 20) {
-      /*aveDeg[2] = -1;
-        aveDeg[1] = -1;
-        aveDeg[0] = -1;*/
       degree = 180;
-    }
-    else if (aveDeg[2] == 0) {
-      /*aveDeg[2] = -1;
-        aveDeg[1] = -1;
-        aveDeg[0] = -1;*/
+    } else if (aveDeg[2] == 0) {
       degree = 0;
-    }
-    else {
-      /*aveDeg[2] = -1;
-        aveDeg[1] = -1;
-        aveDeg[0] = -1;*/
+    } else {
       degree = 180;
     }
   }
-  Serial.println(degree);
   //if (degree != 90.00 && degree != 0.00 && degree != 180.00) {
   //shift values
   aveDeg[0] = aveDeg[1];
@@ -281,7 +278,7 @@ void onwards() {
     }
   }
 
-  //weight the last value by x2
+  //weight the last value by x3
   if (aveDeg[2] != -1) {
     weightedAve += aveDeg[2] * 2;
     sum += 2;
@@ -290,10 +287,7 @@ void onwards() {
   //check to see if any values were valid and then average the values
   if (sum != 0) {
     weightedAve /= sum;
-  }/* else{
-      stop();
-      return;
-    }*/
+  }
   if (weightedAve != 90.00 && weightedAve != 0.00 && weightedAve != 180.00) {
     Serial.print("North : ");
     Serial.println(sumNorth);
@@ -307,14 +301,12 @@ void onwards() {
     Serial.println(weightedAve);
     Serial.println("");
 
-
     changeSpeed(weightedAve);
     motorone.run(FORWARD);
     motortwo.run(FORWARD);
     motorthree.run(FORWARD);
     motorfour.run(FORWARD);
-  }
-  else {
+  } else {
     Serial.print("North : ");
     Serial.println(sumNorth);
     Serial.print("West : ");
@@ -335,17 +327,13 @@ void onwards() {
   sumNorth = 0;
   sumSouth = 0;
 }
+
 void loop() {
   sonar();
-  /*if (millis() >= pingTimer) {   // pingSpeed milliseconds since last ping, do another ping.
-    pingTimer += pingSpeed;      // Set the next ping time.
-    sonar.ping_timer(echoCheck); // Send out the ping, calls "echoCheck" function every 24uS where you can check the ping status.
-  
-  }*/
-  if(distance >15){
+  if (distance > 15) {
     Serial.println(distance);
     onwards();
-  }else{
+  } else {
     stop();
   }
 }
